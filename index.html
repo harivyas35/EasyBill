@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Easy Bill – Local Demo</title>
+    <style>
+        :root {
+            --primary: #6366f1;          /* Indigo */
+            --primary-dark: #4f46e5;
+            --accent: #ec4899;           /* Pink */
+            --accent-soft: #fce7f3;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --card-bg: #ffffff;
+            --border: #e5e7eb;
+            --text-main: #0f172a;
+            --text-muted: #6b7280;
+            --radius-lg: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #22d3ee, #6366f1, #0f172a);
+            color: var(--text-main);
+        }
+
+        .app-container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .app-header {
+            margin-bottom: 20px;
+            color: #f9fafb;
+        }
+
+        .app-title {
+            font-size: 26px;
+            font-weight: 800;
+            margin: 0 0 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-title span.icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.4);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .app-subtitle {
+            margin: 0;
+            font-size: 13px;
+            color: #e5e7eb;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.7);
+            color: #a5b4fc;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 18px 18px 14px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow:
+                0 18px 45px rgba(15, 23, 42, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+
+        .card-title-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #f9fafb;
+            box-shadow: 0 6px 14px rgba(236, 72, 153, 0.55);
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .layout-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: -6px;
+        }
+
+        .layout-item {
+            flex: 1 1 200px;
+            padding: 6px;
+            min-width: 200px;
+        }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+        }
+
+        .field-label strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .field-helper {
+            font-size: 11px;
+            color: var(--accent);
+        }
+
+        input {
+            width: 100%;
+            padding: 8px 9px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.9);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s, transform 0.08s;
+            background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow:
+                0 0 0 1px rgba(129, 140, 248, 0.6),
+                0 8px 18px rgba(79, 70, 229, 0.3);
+            background: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .items-header {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .items-header-right {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .item-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -4px 10px;
+            padding: 9px 7px;
+            border-radius: 12px;
+            background: radial-gradient(circle at top left, #eef2ff, #fce7f3);
+            border: 1px solid rgba(129, 140, 248, 0.6);
+        }
+
+        .item-col {
+            flex: 1 1 150px;
+            padding: 4px;
+            min-width: 150px;
+        }
+
+        .item-actions {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            min-width: 70px;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            font-size: 13px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition:
+                transform 0.08s ease-out,
+                box-shadow 0.08s ease-out,
+                background-color 0.15s,
+                opacity 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            box-shadow: 0 12px 26px rgba(99, 102, 241, 0.55);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #22c55e, #14b8a6);
+            color: #ecfdf5;
+            box-shadow: 0 10px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #f97316, #eab308);
+            color: #1f2937;
+            box-shadow: 0 12px 26px rgba(248, 171, 31, 0.55);
+        }
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            padding: 0;
+            justify-content: center;
+        }
+
+        .btn + .btn {
+            margin-left: 8px;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .footer-note {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header">
+        <div class="app-title">
+            <span class="icon">🧮</span>
+            Easy Bill
+            <span class="badge">Local Preview</span>
+        </div>
+        <p class="app-subtitle">
+            Configure items, bill range & GST, then generate a colorful voucher-wise CSV ready for Excel.
+        </p>
+    </header>
+
+    <!-- Download Excel card -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">
+                    <span class="card-title-icon">⬇</span>
+                    Generated Excel
+                </div>
+                <div class="card-subtitle">
+                    Step 2: Once you submit your configuration successfully, this button will be enabled.
+                </div>
+            </div>
+        </div>
+        <!-- HIDDEN INITIALLY -->
+        <button id="downloadExcelBtn" class="btn btn-download hidden">
+            ⬇ Download Excel (CSV)
+        </button>
+    </div>
+
+    <!-- Filters / header inputs -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">
+                    <span class="card-title-icon">⚙</span>
+                    Bill Filters
+                </div>
+                <div class="card-subtitle">
+                    Define date range, bill numbers and max voucher amount (including GST).
+                </div>
+            </div>
+        </div>
+
+        <div class="layout-row">
+            <div class="layout-item">
+                <div class="field-label">
+                    <strong>From Date</strong>
+                </div>
+                <input type="date" id="fromDate" />
+            </div>
+
+            <div class="layout-item">
+                <div class="field-label">
+                    <strong>To Date</strong>
+                </div>
+                <input type="date" id="toDate" />
+            </div>
+
+            <div class="layout-item">
+                <div class="field-label">
+                    <strong>Start Bill Number</strong>
+                </div>
+                <input type="number" id="billStartNumber" min="1" />
+            </div>
+
+            <div class="layout-item">
+                <div class="field-label">
+                    <strong>End Bill Number</strong>
+                </div>
+                <input type="number" id="billEndNumber" min="1" />
+            </div>
+
+            <div class="layout-item">
+                <div class="field-label">
+                    <strong>Max Bill Amount</strong>
+                    <span class="field-helper">Per voucher (inclusive of GST)</span>
+                </div>
+                <input type="number" id="maxBillAmount" min="1" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Item list card -->
+    <div class="card">
+        <div class="card-header items-header">
+            <div>
+                <div class="card-title">
+                    <span class="card-title-icon">🧾</span>
+                    Item List
+                </div>
+                <div class="card-subtitle">
+                    Item prices are entered inclusive of GST; net price & net amount are auto-calculated.
+                </div>
+            </div>
+            <div class="items-header-right" id="itemsCountLabel">
+                1 item configured
+            </div>
+        </div>
+
+        <div id="itemsContainer"></div>
+
+        <div class="button-row">
+            <div class="button-group">
+                <button id="addItemBtn" class="btn btn-secondary">＋ Add Item</button>
+            </div>
+            <div class="button-group">
+                <button id="submitBtn" class="btn btn-primary">✓ Submit Configuration</button>
+            </div>
+        </div>
+
+        <div class="footer-note">
+            <span class="dot"></span>
+            <span>
+                Net price & Net amount are calculated excluding GST. Final invoice includes CGST + SGST.
+            </span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ------------------ State ------------------
+    let billStartNumber = null;
+    let billEndNumber = null;
+    let startDate = null;
+    let endDate = null;
+    let maxBillAmount = null;
+
+    let items = [
+        {
+            id: 0,
+            name: '',
+            quantity: null,
+            higestunitPrice: null,
+            lowestunitPrice: null,
+            gstRate: null,
+            variance: null
+        }
+    ];
+    let nextId = 1;
+
+    // ------------------ DOM references ------------------
+    const fromDateInput = document.getElementById('fromDate');
+    const toDateInput = document.getElementById('toDate');
+    const billStartNumberInput = document.getElementById('billStartNumber');
+    const billEndNumberInput = document.getElementById('billEndNumber');
+    const maxBillAmountInput = document.getElementById('maxBillAmount');
+
+    const itemsContainer = document.getElementById('itemsContainer');
+    const itemsCountLabel = document.getElementById('itemsCountLabel');
+    const addItemBtn = document.getElementById('addItemBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+
+    // ------------------ Header input handlers ------------------
+    fromDateInput.addEventListener('change', (event) => {
+        startDate = event.target.value;
+    });
+
+    toDateInput.addEventListener('change', (event) => {
+        endDate = event.target.value;
+    });
+
+    billStartNumberInput.addEventListener('change', (event) => {
+        billStartNumber = event.target.value;
+    });
+
+    billEndNumberInput.addEventListener('change', (event) => {
+        billEndNumber = event.target.value;
+    });
+
+    maxBillAmountInput.addEventListener('change', (event) => {
+        maxBillAmount = event.target.value;
+    });
+
+    // ------------------ Render items ------------------
+    function renderItems() {
+        itemsContainer.innerHTML = '';
+
+        items.forEach((item, index) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'item-row';
+            rowDiv.dataset.index = index;
+
+            // Item Name
+            rowDiv.appendChild(
+                createInputCol('Item Name', 'text', 'name', index, item.name)
+            );
+
+            // Quantity
+            rowDiv.appendChild(
+                createInputCol('Quantity', 'number', 'quantity', index, item.quantity)
+            );
+
+            // Lowest Unit Price (incl GST)
+            rowDiv.appendChild(
+                createInputCol(
+                    'Lowest Unit Price (Incl GST)',
+                    'number',
+                    'lowestunitPrice',
+                    index,
+                    item.lowestunitPrice
+                )
+            );
+
+            // Highest Unit Price (incl GST)
+            rowDiv.appendChild(
+                createInputCol(
+                    'Highest Unit Price (Incl GST)',
+                    'number',
+                    'higestunitPrice',
+                    index,
+                    item.higestunitPrice
+                )
+            );
+
+            // Variance
+            rowDiv.appendChild(
+                createInputCol(
+                    'Variance Step',
+                    'number',
+                    'variance',
+                    index,
+                    item.variance
+                )
+            );
+
+            // GST Rate
+            rowDiv.appendChild(
+                createInputCol(
+                    'GST Rate (%)',
+                    'number',
+                    'gstRate',
+                    index,
+                    item.gstRate
+                )
+            );
+
+            // Delete button
+            const deleteCol = document.createElement('div');
+            deleteCol.className = 'item-col item-actions';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-danger btn-icon';
+            deleteBtn.textContent = '✕';
+            deleteBtn.title = 'Delete row';
+            deleteBtn.dataset.id = item.id;
+            deleteBtn.addEventListener('click', handleDelete);
+
+            deleteCol.appendChild(deleteBtn);
+            rowDiv.appendChild(deleteCol);
+
+            itemsContainer.appendChild(rowDiv);
+        });
+
+        updateItemsCountLabel();
+    }
+
+    function createInputCol(labelText, type, name, index, value) {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'item-col';
+
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'field-label';
+        const label = document.createElement('strong');
+        label.textContent = labelText;
+        labelDiv.appendChild(label);
+        colDiv.appendChild(labelDiv);
+
+        const input = document.createElement('input');
+        input.type = type;
+        input.name = name;
+        input.dataset.index = index;
+        if (value !== null && value !== undefined) {
+            input.value = value;
+        }
+        input.addEventListener('change', handleItemChange);
+
+        colDiv.appendChild(input);
+        return colDiv;
+    }
+
+    function updateItemsCountLabel() {
+        const count = items.length;
+        itemsCountLabel.textContent =
+            count === 1 ? '1 item configured' : `${count} items configured`;
+    }
+
+    // ------------------ Item events ------------------
+    function handleItemChange(event) {
+        const rowNumber = parseInt(event.target.dataset.index, 10);
+        const field = event.target.name;
+        const value = event.target.value;
+
+        const newItems = [...items];
+        newItems[rowNumber][field] = value;
+        items = newItems;
+    }
+
+    function handleDelete(event) {
+        const idToDelete = parseInt(event.target.dataset.id, 10);
+        items = items.filter(item => item.id !== idToDelete);
+        if (items.length === 0) {
+            items = [
+                {
+                    id: nextId++,
+                    name: '',
+                    quantity: null,
+                    higestunitPrice: null,
+                    lowestunitPrice: null,
+                    gstRate: null,
+                    variance: null
+                }
+            ];
+        }
+        renderItems();
+    }
+
+    function handleAddItem() {
+        items = [
+            ...items,
+            {
+                id: nextId++,
+                name: '',
+                quantity: null,
+                higestunitPrice: null,
+                lowestunitPrice: null,
+                gstRate: null,
+                variance: null
+            }
+        ];
+        renderItems();
+    }
+
+    addItemBtn.addEventListener('click', handleAddItem);
+
+    // ------------------ Submit ------------------
+    function handleSubmit() {
+        const allInputs = document.querySelectorAll('input');
+        let allValid = true;
+        allInputs.forEach(input => {
+            if (!input.checkValidity()) {
+                allValid = false;
+                input.reportValidity();
+            }
+        });
+
+        if (!allValid) {
+            console.log('Please correct validation errors before submitting.');
+            return;
+        }
+
+        const itemsPayload = items.map(item => ({
+            itemName: item.name,
+            quantity: item.quantity ? Number(item.quantity) : null,
+            higestunitPrice: item.higestunitPrice ? Number(item.higestunitPrice) : null,
+            lowestunitPrice: item.lowestunitPrice ? Number(item.lowestunitPrice) : null,
+            gstRate: item.gstRate ? Number(item.gstRate) : null,
+            variance: item.variance ? Number(item.variance) : null
+        }));
+
+        const payload = {
+            billStartNumber: billStartNumber ? Number(billStartNumber) : null,
+            billEndNumber: billEndNumber ? Number(billEndNumber) : null,
+            startDate: startDate || null,
+            endDate: endDate || null,
+            maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null,
+            items: itemsPayload
+        };
+
+        console.log('Submitted items => ', JSON.stringify(payload, null, 2));
+        alert('Configuration submitted! Scroll up to use "Download Excel (CSV)".');
+
+        // ✅ SHOW DOWNLOAD BUTTON AFTER SUCCESSFUL SUBMIT
+        downloadExcelBtn.classList.remove('hidden');
+    }
+
+    submitBtn.addEventListener('click', handleSubmit);
+
+    // ------------------ Download Excel/CSV ------------------
+    function handleDownloadExcel() {
+        try {
+            const itemsPayload = items.map(item => ({
+                itemName: item.name,
+                quantity: item.quantity ? Number(item.quantity) : null,
+                higestunitPrice: item.higestunitPrice ? Number(item.higestunitPrice) : null,
+                lowestunitPrice: item.lowestunitPrice ? Number(item.lowestunitPrice) : null,
+                gstRate: item.gstRate ? Number(item.gstRate) : null,
+                variance: item.variance ? Number(item.variance) : null
+            }));
+
+            const payload = {
+                billStartNumber: billStartNumber ? Number(billStartNumber) : null,
+                billEndNumber: billEndNumber ? Number(billEndNumber) : null,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST
+                items: itemsPayload
+            };
+
+            if (
+                !payload.billStartNumber ||
+                !payload.billEndNumber ||
+                !payload.startDate ||
+                !payload.endDate ||
+                !payload.maxBillAmount ||
+                !payload.items ||
+                payload.items.length === 0
+            ) {
+                alert('Missing data for Excel generation. Please submit configuration again.');
+                console.log('Missing data for Excel generation', payload);
+                return;
+            }
+
+            const startVoucher = payload.billStartNumber;
+            const endVoucher = payload.billEndNumber;
+
+            const dateList = generateDateRange(payload.startDate, payload.endDate);
+            if (dateList.length === 0) {
+                alert('No dates in the given range');
+                console.log('No dates in the given range');
+                return;
+            }
+
+            const headers = [
+                'Date',
+                'Particulars',
+                'Voucher Type',
+                'Voucher No.',
+                'Quantity',
+                'NET PRICE',      // excl GST
+                'NET AMT',        // excl GST
+                'Cgst',
+                'Sgst',
+                'FINAL INVOICE',  // incl GST
+                'item name',
+                'ledger',
+                'Registration Type'
+            ];
+
+            const rows = [];
+            let dateIndex = 0;
+
+            for (let voucherNo = startVoucher; voucherNo <= endVoucher; voucherNo++) {
+                let remainingAmount = payload.maxBillAmount; // INCL GST per voucher
+
+                const date = dateList[dateIndex] || dateList[dateList.length - 1];
+                if (dateIndex < dateList.length - 1) {
+                    dateIndex++;
+                }
+
+                const itemsShuffled = [...payload.items].sort(() => Math.random() - 0.5);
+
+                for (let item of itemsShuffled) {
+                    if (remainingAmount <= 0) {
+                        break;
+                    }
+
+                    const lowest = item.lowestunitPrice || 0;   // INCL GST
+                    const highest = item.higestunitPrice || 0;  // INCL GST
+                    if (lowest <= 0 || highest <= 0 || highest < lowest) {
+                        continue;
+                    }
+
+                    const grossUnitPriceIncl = getRandomPrice(
+                        lowest,
+                        highest,
+                        item.variance
+                    );
+                    if (!grossUnitPriceIncl) {
+                        continue;
+                    }
+
+                    const gstRate = item.gstRate || 0;
+
+                    // Convert to net unit price excl GST
+                    let netUnitPriceExcl;
+                    if (gstRate > 0) {
+                        netUnitPriceExcl = roundTo2(
+                            grossUnitPriceIncl / (1 + gstRate / 100)
+                        );
+                    } else {
+                        netUnitPriceExcl = roundTo2(grossUnitPriceIncl);
+                    }
+
+                    const maxQtyByPrice = Math.floor(remainingAmount / grossUnitPriceIncl);
+                    if (maxQtyByPrice <= 0) {
+                        continue;
+                    }
+
+                    const maxAllowedQty =
+                        item.quantity && item.quantity > 0
+                            ? Math.min(item.quantity, maxQtyByPrice)
+                            : maxQtyByPrice;
+
+                    if (maxAllowedQty <= 0) {
+                        continue;
+                    }
+
+                    const qty = getRandomInt(1, maxAllowedQty);
+
+                    const netAmt = roundTo2(netUnitPriceExcl * qty);
+
+                    let cgst = 0;
+                    let sgst = 0;
+                    let finalInvoice = netAmt;
+
+                    if (gstRate > 0) {
+                        const totalGst = roundTo2((netAmt * gstRate) / 100);
+                        const halfGst = roundTo2(totalGst / 2);
+
+                        cgst = halfGst;
+                        sgst = roundTo2(totalGst - halfGst);
+                        finalInvoice = roundTo2(netAmt + cgst + sgst);
+                    }
+
+                    if (finalInvoice > remainingAmount) {
+                        continue;
+                    }
+
+                    remainingAmount -= finalInvoice;
+
+                    rows.push([
+                        date,
+                        'Cash',
+                        'C SALE',
+                        voucherNo,
+                        qty,
+                        roundTo2(netUnitPriceExcl).toFixed(2),  // NET PRICE (excl GST)
+                        roundTo2(netAmt).toFixed(2),            // NET AMT (excl GST)
+                        roundTo2(cgst).toFixed(2),              // Cgst
+                        roundTo2(sgst).toFixed(2),              // Sgst
+                        roundTo2(finalInvoice).toFixed(2),      // FINAL INVOICE (incl GST)
+                        item.itemName,
+                        'SALE GST',
+                        'Unregistered/Consumer'
+                    ]);
+                }
+            }
+
+            if (rows.length === 0) {
+                alert('No rows generated with the given constraints');
+                console.log('No rows generated with the given constraints');
+                return;
+            }
+
+            let csvContent = '';
+            csvContent += headers.join(',') + '\n';
+
+            rows.forEach(row => {
+                const escapedRow = row.map(value => {
+                    const val =
+                        value !== null && value !== undefined
+                            ? value.toString()
+                            : '';
+                    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                        return `"${val.replace(/"/g, '""')}"`;
+                    }
+                    return val;
+                });
+                csvContent += escapedRow.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], {
+                type: 'application/octet-stream'
+            });
+            const url = URL.createObjectURL(blob);
+
+            const downloadElement = document.createElement('a');
+            downloadElement.href = url;
+            const start = payload.startDate.replace(/-/g, '');
+            const end = payload.endDate.replace(/-/g, '');
+            downloadElement.download = `BillsExport_${start}_to_${end}.csv`;
+
+            document.body.appendChild(downloadElement);
+            downloadElement.click();
+            document.body.removeChild(downloadElement);
+
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error while generating Excel/CSV: ', error);
+            alert('Error while generating CSV. Check console for details.');
+        }
+    }
+
+    downloadExcelBtn.addEventListener('click', handleDownloadExcel);
+
+    // ------------------ Helper functions ------------------
+    function getRandomInt(min, max) {
+        const minInt = Math.ceil(min);
+        const maxInt = Math.floor(max);
+        return Math.floor(Math.random() * (maxInt - minInt + 1)) + minInt;
+    }
+
+    // Price INCLUDING GST
+    function getRandomPrice(lowest, highest, variance) {
+        const step = variance && variance > 0 ? variance : 5;
+        const minMult = Math.ceil(lowest / step);
+        const maxMult = Math.floor(highest / step);
+        if (maxMult < minMult) {
+            return null;
+        }
+        const multiplier = getRandomInt(minMult, maxMult);
+        return multiplier * step;
+    }
+
+    function generateDateRange(startDateStr, endDateStr) {
+        const dates = [];
+        const start = new Date(startDateStr);
+        const end = new Date(endDateStr);
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return dates;
+        }
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.push(d.toISOString().slice(0, 10));
+        }
+
+        return dates;
+    }
+
+    function roundTo2(value) {
+        if (value === null || value === undefined || isNaN(value)) {
+            return 0;
+        }
+        return Math.round(value * 100) / 100;
+    }
+
+    // Initial render
+    renderItems();
+</script>
+</body>
+</html>
