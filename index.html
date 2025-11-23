@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -357,7 +355,7 @@
                     Bill Filters
                 </div>
                 <div class="card-subtitle">
-                    Date range, voucher numbers and max voucher amount (inclusive GST).
+                    Date range, voucher numbers and (optional) max voucher amount (incl GST).
                 </div>
             </div>
         </div>
@@ -394,7 +392,7 @@
             <div class="layout-item">
                 <div class="field-label">
                     <strong>Max Bill Amount</strong>
-                    <span class="field-helper">Per voucher (incl. GST)</span>
+                    <span class="field-helper">Optional (not enforced now)</span>
                 </div>
                 <input type="number" id="maxBillAmount" min="1" />
             </div>
@@ -439,7 +437,7 @@
 </div>
 
 <script>
-    // ------------------ State (same as LWC fields) ------------------
+    // ------------------ State (mirrors LWC fields) ------------------
     let billStartNumber;
     let billEndNumber;
     let startDate;
@@ -473,7 +471,7 @@
     const submitBtn = document.getElementById('submitBtn');
     const downloadExcelBtn = document.getElementById('downloadExcelBtn');
 
-    // ------------------ Handlers mirroring LWC methods ------------------
+    // ------------------ Header input handlers (LWC equivalents) ------------------
     function handleBillStartNumberChange(event) {
         billStartNumber = event.target.value;
     }
@@ -494,9 +492,7 @@
         maxBillAmount = event.target.value;
     }
 
-    // equivalent to LWC handleNumberOfItemChange (you don’t use it in logic yet)
     function handleNumberOfItemChange(event) {
-        // just keep for parity; not used
         const numberOfItem = event.target.value;
         console.log('Number of items (not used yet): ', numberOfItem);
     }
@@ -608,7 +604,6 @@
         if (value !== null && value !== undefined) {
             input.value = value;
         }
-        // This mirrors LWC handleChange
         input.addEventListener('change', handleChange);
 
         colDiv.appendChild(input);
@@ -621,7 +616,7 @@
             count === 1 ? '1 item configured' : `${count} items configured`;
     }
 
-    // ------------------ LWC-equivalent handlers for items ------------------
+    // ------------------ LWC-equivalent item handlers ------------------
     function handleAddItem() {
         items = [
             ...items,
@@ -639,48 +634,24 @@
     }
 
     function handleChange(event) {
-        // Which row was edited?
         let rowNumber = event.target.dataset.index;
-
-        // Which field? (name, quantity, higestunitPrice, lowestunitPrice, gstRate, variance)
         let field = event.target.name;
-
-        // What value did the user type?
         let value = event.target.value;
 
-        // Make a copy of the items array
         let newItems = [...items];
-
-        // Update only the field that was changed in that specific row
         newItems[rowNumber][field] = value;
-
-        // Save it back so the UI updates
         items = newItems;
     }
 
     function handleDelete(event) {
-        const idToDelete = parseInt(event.target.dataset.id, 10);
+        const idToDelete = parseInt(event.currentTarget.dataset.id, 10);
         items = items.filter(item => item.id !== idToDelete);
-        if (items.length === 0) {
-            // keep at least one row, like we did before
-            items = [
-                {
-                    id: nextId++,
-                    name: '',
-                    quantity: null,
-                    higestunitPrice: null,
-                    lowestunitPrice: null,
-                    gstRate: null,
-                    variance: null
-                }
-            ];
-        }
         renderItems();
     }
 
     addItemBtn.addEventListener('click', handleAddItem);
 
-    // ------------------ Submit (mirroring handleSubmit) ------------------
+    // ------------------ Submit (mirrors handleSubmit) ------------------
     function handleSubmit() {
         const allInputs = document.querySelectorAll('input');
         let allValid = true;
@@ -717,13 +688,12 @@
         console.log('Submitted items => ', JSON.stringify(payload));
         alert('Configuration submitted. Download button is now enabled.');
 
-        // show download button only after successful submit
         downloadExcelBtn.classList.remove('hidden');
     }
 
     submitBtn.addEventListener('click', handleSubmit);
 
-    // ------------------ Download Excel / CSV (updated LWC logic) ------------------
+    // ------------------ Download Excel / CSV (matches updated LWC) ------------------
     function handleDownloadExcel() {
         try {
             const itemsPayload = items.map(item => ({
@@ -740,7 +710,7 @@
                 billEndNumber: billEndNumber ? Number(billEndNumber) : null,
                 startDate: startDate || null, // 'YYYY-MM-DD'
                 endDate: endDate || null,     // 'YYYY-MM-DD'
-                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST
+                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST (not enforced now)
                 items: itemsPayload
             };
 
@@ -749,12 +719,11 @@
                 !payload.billEndNumber ||
                 !payload.startDate ||
                 !payload.endDate ||
-                !payload.maxBillAmount ||
                 !payload.items ||
                 payload.items.length === 0
             ) {
                 console.log('Missing data for Excel generation');
-                alert('Missing data for Excel generation. Please submit again.');
+                alert('Missing data for Excel generation.');
                 return;
             }
 
@@ -782,11 +751,11 @@
                 'Voucher Type',
                 'Voucher No.',
                 'Quantity',
-                'NET PRICE',       // excl GST
-                'NET AMT',         // excl GST
+                'NET PRICE',      // excl GST
+                'NET AMT',        // excl GST
                 'Cgst',
                 'Sgst',
-                'FINAL INVOICE',   // incl GST
+                'FINAL INVOICE',  // incl GST
                 'item name',
                 'ledger',
                 'Registration Type'
@@ -810,12 +779,10 @@
             // 2) For each voucher, create rows
             for (let vIndex = 0; vIndex < voucherCount; vIndex++) {
                 const voucherNo = startVoucher + vIndex;
-                const date =
-                    dateList[vIndex] || dateList[dateList.length - 1];
+                // round-robin assignment of vouchers to dates
+                const date = dateList[vIndex % dateList.length];
 
-                let voucherRows = [];
-                let voucherTotal = 0; // FINAl INVOICE sum before scaling
-
+                // randomize item order for this voucher
                 const itemIndices = Array.from(
                     { length: itemDistributions.length },
                     (_, i) => i
@@ -829,8 +796,8 @@
                         continue;
                     }
 
-                    const lowest = item.lowestunitPrice || 0;   // INCL GST
-                    const highest = item.higestunitPrice || 0;  // INCL GST
+                    const lowest = item.lowestunitPrice || 0;  // INCL GST
+                    const highest = item.higestunitPrice || 0; // INCL GST
                     if (lowest <= 0 || highest <= 0 || highest < lowest) {
                         continue;
                     }
@@ -846,7 +813,6 @@
 
                     const gstRate = item.gstRate || 0;
 
-                    // NET UNIT (excl GST)
                     let netUnitPriceExcl;
                     if (gstRate > 0) {
                         netUnitPriceExcl = roundTo2(
@@ -865,85 +831,27 @@
                     if (gstRate > 0) {
                         const totalGst = roundTo2((netAmt * gstRate) / 100);
                         const halfGst = roundTo2(totalGst / 2);
-
                         cgst = halfGst;
                         sgst = roundTo2(totalGst - halfGst);
                         finalInvoice = roundTo2(netAmt + cgst + sgst);
                     }
 
-                    voucherRows.push({
+                    rows.push([
                         date,
+                        'Cash',                         // Particulars
+                        'C SALE',                       // Voucher Type
                         voucherNo,
                         qty,
-                        netAmt,
-                        gstRate,
-                        itemName: item.itemName
-                    });
-
-                    voucherTotal += finalInvoice;
-                }
-
-                if (voucherRows.length === 0) {
-                    continue;
-                }
-
-                // 3) Scale voucher total into [10%, 100%] of maxBillAmount
-                const maxBill = payload.maxBillAmount;
-                const minTotal = roundTo2(maxBill * 0.1);
-                const maxTotal = roundTo2(maxBill);
-
-                let targetTotal;
-                if (voucherTotal <= 0) {
-                    continue;
-                } else if (voucherTotal < minTotal) {
-                    targetTotal = minTotal;
-                } else if (voucherTotal > maxTotal) {
-                    targetTotal = maxTotal;
-                } else {
-                    targetTotal = voucherTotal;
-                }
-
-                const scale = roundTo2(targetTotal / voucherTotal);
-
-                // 4) Apply scaling and push CSV rows
-                voucherRows.forEach(row => {
-                    const scaledNetAmt = roundTo2(row.netAmt * scale);
-                    const netUnitPriceExcl = roundTo2(
-                        scaledNetAmt / row.qty
-                    );
-
-                    let cgst = 0;
-                    let sgst = 0;
-                    let finalInvoice = scaledNetAmt;
-
-                    if (row.gstRate && row.gstRate > 0) {
-                        const totalGst = roundTo2(
-                            (scaledNetAmt * row.gstRate) / 100
-                        );
-                        const halfGst = roundTo2(totalGst / 2);
-                        cgst = halfGst;
-                        sgst = roundTo2(totalGst - halfGst);
-                        finalInvoice = roundTo2(
-                            scaledNetAmt + cgst + sgst
-                        );
-                    }
-
-                    rows.push([
-                        row.date,
-                        'Cash',
-                        'C SALE',
-                        row.voucherNo,
-                        row.qty,
-                        netUnitPriceExcl.toFixed(2),
-                        scaledNetAmt.toFixed(2),
-                        cgst.toFixed(2),
-                        sgst.toFixed(2),
-                        finalInvoice.toFixed(2),
-                        row.itemName,
-                        'SALE GST',
-                        'Unregistered/Consumer'
+                        netUnitPriceExcl.toFixed(2),    // NET PRICE (excl GST)
+                        netAmt.toFixed(2),              // NET AMT (excl GST)
+                        cgst.toFixed(2),                // Cgst
+                        sgst.toFixed(2),                // Sgst
+                        finalInvoice.toFixed(2),        // FINAL INVOICE (incl GST)
+                        item.itemName,
+                        'SALE GST',                     // ledger
+                        'Unregistered/Consumer'         // Registration Type
                     ]);
-                });
+                }
             }
 
             if (rows.length === 0) {
@@ -1003,14 +911,14 @@
 
     downloadExcelBtn.addEventListener('click', handleDownloadExcel);
 
-    // ------------------ Helper functions (from your LWC) ------------------
+    // ------------------ Helpers (same as in LWC) ------------------
     function getRandomInt(min, max) {
         const minInt = Math.ceil(min);
         const maxInt = Math.floor(max);
         return Math.floor(Math.random() * (maxInt - minInt + 1)) + minInt;
     }
 
-    // Price INCLUDING GST
+    // Price INCLUDING GST, always within [lowest, highest]
     function getRandomPrice(lowest, highest, variance) {
         const step = variance && variance > 0 ? variance : 5;
         const minMult = Math.ceil(lowest / step);
