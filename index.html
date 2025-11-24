@@ -1005,14 +1005,45 @@
     }
 
     // Random price between lowest & highest using variance step (incl GST)
-    function getRandomPrice(lowest, highest, variance) {
+// Random price between lowest & highest using variance step (values are INCL GST)
+function getRandomPrice(lowest, highest, variance) {
+    const lo = Number(lowest);
+    const hi = Number(highest);
+
+    // Basic validation
+    if (isNaN(lo) || isNaN(hi) || lo <= 0 || hi <= 0 || hi < lo) {
+        return null;
+    }
+
+    // If both are the same, just return that exact value
+    if (lo === hi) {
+        return lo;
+    }
+
+    // Otherwise use step logic (variance or default 5)
+    const step = variance && variance > 0 ? Number(variance) : 5;
+
+    const minMult = Math.ceil(lo / step);
+    const maxMult = Math.floor(hi / step);
+
+    if (maxMult < minMult) {
+        // range too narrow for given step
+        return null;
+    }
+
+    const multiplier = this.getRandomInt(minMult, maxMult);
+    return step * multiplier;
+}
+
+
+    /*function getRandomPrice(lowest, highest, variance) {
         const step = variance > 0 ? variance : 5;
         const minMult = Math.ceil(lowest / step);
         const maxMult = Math.floor(highest / step);
         if (maxMult < minMult) return null;
         const multiplier = getRandomInt(minMult, maxMult);
         return step * multiplier;
-    }
+    }*/
 
     function generateDateRange(start, end) {
         const result = [];
