@@ -320,7 +320,7 @@
         <div class="app-title">
             <span class="icon">🧮</span>
             Easy Bill
-            <span class="badge">Local Run</span>
+            <span class="badge">EasyBill Tool</span>
         </div>
         <p class="app-subtitle">
             Configure items, bill range & GST, then generate voucher-wise CSV ready for Excel.
@@ -355,7 +355,7 @@
                     Bill Filters
                 </div>
                 <div class="card-subtitle">
-                    Date range, voucher numbers and (optional) max voucher amount (incl GST).
+                    Date range, voucher numbers and Max Bill Amount (incl GST).
                 </div>
             </div>
         </div>
@@ -392,7 +392,7 @@
             <div class="layout-item">
                 <div class="field-label">
                     <strong>Max Bill Amount</strong>
-                    <span class="field-helper">Optional (not enforced now)</span>
+                    <span class="field-helper">Per voucher (Incl GST)</span>
                 </div>
                 <input type="number" id="maxBillAmount" min="1" />
             </div>
@@ -408,7 +408,7 @@
                     Item List
                 </div>
                 <div class="card-subtitle">
-                    Item prices are entered inclusive of GST; net values are calculated internally.
+                    Enter item quantity and price range (inclusive of GST).
                 </div>
             </div>
             <div class="items-header-right" id="itemsCountLabel">
@@ -430,14 +430,14 @@
         <div class="footer-note">
             <span class="dot"></span>
             <span>
-                Net price & Net amount are excluding GST. Final invoice = Net + CGST + SGST.
+                NET PRICE / NET AMT are excluding GST. FINAL INVOICE is inclusive of GST.
             </span>
         </div>
     </div>
 </div>
 
 <script>
-    // ------------------ State (mirrors LWC fields) ------------------
+    // ------------------ STATE (mirrors LWC fields) ------------------
     let billStartNumber;
     let billEndNumber;
     let startDate;
@@ -458,7 +458,7 @@
 
     let nextId = 1;
 
-    // ------------------ DOM references ------------------
+    // ------------------ DOM REFERENCES ------------------
     const fromDateInput = document.getElementById('fromDate');
     const toDateInput = document.getElementById('toDate');
     const billStartNumberInput = document.getElementById('billStartNumber');
@@ -471,31 +471,18 @@
     const submitBtn = document.getElementById('submitBtn');
     const downloadExcelBtn = document.getElementById('downloadExcelBtn');
 
-    // ------------------ Header input handlers (LWC equivalents) ------------------
-    function handleBillStartNumberChange(event) {
-        billStartNumber = event.target.value;
+    // ------------------ TOAST (browser version of ShowToastEvent) ------------------
+    function showErrorToast(message) {
+        console.error(message);
+        alert('Error: ' + message);
     }
 
-    function handleBillEndNumberChange(event) {
-        billEndNumber = event.target.value;
-    }
-
-    function handleFromDateChange(event) {
-        startDate = event.target.value;
-    }
-
-    function handleToDateChange(event) {
-        endDate = event.target.value;
-    }
-
-    function handleMaxBillAmountChange(event) {
-        maxBillAmount = event.target.value;
-    }
-
-    function handleNumberOfItemChange(event) {
-        const numberOfItem = event.target.value;
-        console.log('Number of items (not used yet): ', numberOfItem);
-    }
+    // ------------------ HEADER FIELD HANDLERS ------------------
+    function handleBillStartNumberChange(e) { billStartNumber = e.target.value; }
+    function handleBillEndNumberChange(e) { billEndNumber = e.target.value; }
+    function handleFromDateChange(e) { startDate = e.target.value; }
+    function handleToDateChange(e) { endDate = e.target.value; }
+    function handleMaxBillAmountChange(e) { maxBillAmount = e.target.value; }
 
     fromDateInput.addEventListener('change', handleFromDateChange);
     toDateInput.addEventListener('change', handleToDateChange);
@@ -503,7 +490,7 @@
     billEndNumberInput.addEventListener('change', handleBillEndNumberChange);
     maxBillAmountInput.addEventListener('change', handleMaxBillAmountChange);
 
-    // ------------------ Render items ------------------
+    // ------------------ ITEM RENDERING ------------------
     function renderItems() {
         itemsContainer.innerHTML = '';
 
@@ -512,17 +499,12 @@
             rowDiv.className = 'item-row';
             rowDiv.dataset.index = index;
 
-            // Item Name
             rowDiv.appendChild(
                 createInputCol('Item Name', 'text', 'name', index, item.name)
             );
-
-            // Quantity
             rowDiv.appendChild(
                 createInputCol('Quantity', 'number', 'quantity', index, item.quantity)
             );
-
-            // Lowest Unit Price (incl GST)
             rowDiv.appendChild(
                 createInputCol(
                     'Lowest Unit Price (Incl GST)',
@@ -532,8 +514,6 @@
                     item.lowestunitPrice
                 )
             );
-
-            // Highest Unit Price (incl GST)
             rowDiv.appendChild(
                 createInputCol(
                     'Highest Unit Price (Incl GST)',
@@ -543,8 +523,6 @@
                     item.higestunitPrice
                 )
             );
-
-            // Variance
             rowDiv.appendChild(
                 createInputCol(
                     'Variance Step',
@@ -554,8 +532,6 @@
                     item.variance
                 )
             );
-
-            // GST Rate
             rowDiv.appendChild(
                 createInputCol(
                     'GST Rate (%)',
@@ -566,17 +542,14 @@
                 )
             );
 
-            // Delete button
             const deleteCol = document.createElement('div');
             deleteCol.className = 'item-col item-actions';
-
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn btn-danger btn-icon';
             deleteBtn.textContent = '✕';
             deleteBtn.title = 'Delete row';
             deleteBtn.dataset.id = item.id;
             deleteBtn.addEventListener('click', handleDelete);
-
             deleteCol.appendChild(deleteBtn);
             rowDiv.appendChild(deleteCol);
 
@@ -616,7 +589,7 @@
             count === 1 ? '1 item configured' : `${count} items configured`;
     }
 
-    // ------------------ LWC-equivalent item handlers ------------------
+    // ------------------ ITEM HANDLERS (mirroring LWC) ------------------
     function handleAddItem() {
         items = [
             ...items,
@@ -634,24 +607,24 @@
     }
 
     function handleChange(event) {
-        let rowNumber = event.target.dataset.index;
-        let field = event.target.name;
-        let value = event.target.value;
+        const idx = event.target.dataset.index;
+        const field = event.target.name;
+        const value = event.target.value;
 
-        let newItems = [...items];
-        newItems[rowNumber][field] = value;
-        items = newItems;
+        const copy = [...items];
+        copy[idx][field] = value;
+        items = copy;
     }
 
     function handleDelete(event) {
-        const idToDelete = parseInt(event.currentTarget.dataset.id, 10);
-        items = items.filter(item => item.id !== idToDelete);
+        const id = Number(event.currentTarget.dataset.id);
+        items = items.filter(i => i.id !== id);
         renderItems();
     }
 
     addItemBtn.addEventListener('click', handleAddItem);
 
-    // ------------------ Submit (mirrors handleSubmit) ------------------
+    // ------------------ SUBMIT (same logic + show download button) ------------------
     function handleSubmit() {
         const allInputs = document.querySelectorAll('input');
         let allValid = true;
@@ -686,44 +659,47 @@
         };
 
         console.log('Submitted items => ', JSON.stringify(payload));
-        alert('Configuration submitted. Download button is now enabled.');
+        alert('Configuration submitted. You can now Download Excel.');
 
+        // Only after successful submit
         downloadExcelBtn.classList.remove('hidden');
     }
 
     submitBtn.addEventListener('click', handleSubmit);
 
-    // ------------------ Download Excel / CSV (matches updated LWC) ------------------
+    // ===========================================================
+    //                   DOWNLOAD EXCEL / CSV
+    // ===========================================================
     function handleDownloadExcel() {
         try {
+            // Build clean payload from current UI
             const itemsPayload = items.map(item => ({
                 itemName: item.name,
-                quantity: item.quantity ? Number(item.quantity) : null,
-                higestunitPrice: item.higestunitPrice ? Number(item.higestunitPrice) : null,
-                lowestunitPrice: item.lowestunitPrice ? Number(item.lowestunitPrice) : null,
-                gstRate: item.gstRate ? Number(item.gstRate) : null,
-                variance: item.variance ? Number(item.variance) : null
+                quantity: item.quantity ? Number(item.quantity) : 0,
+                higestunitPrice: item.higestunitPrice ? Number(item.higestunitPrice) : 0,
+                lowestunitPrice: item.lowestunitPrice ? Number(item.lowestunitPrice) : 0,
+                gstRate: item.gstRate ? Number(item.gstRate) : 0,
+                variance: item.variance ? Number(item.variance) : 0
             }));
 
             const payload = {
                 billStartNumber: billStartNumber ? Number(billStartNumber) : null,
                 billEndNumber: billEndNumber ? Number(billEndNumber) : null,
-                startDate: startDate || null, // 'YYYY-MM-DD'
-                endDate: endDate || null,     // 'YYYY-MM-DD'
-                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST (not enforced now)
+                startDate: startDate || null,
+                endDate: endDate || null,
+                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST
                 items: itemsPayload
             };
 
-            if (
-                !payload.billStartNumber ||
+            // Basic validation
+            if (!payload.billStartNumber ||
                 !payload.billEndNumber ||
                 !payload.startDate ||
                 !payload.endDate ||
-                !payload.items ||
+                !payload.maxBillAmount ||
                 payload.items.length === 0
             ) {
-                console.log('Missing data for Excel generation');
-                alert('Missing data for Excel generation.');
+                showErrorToast('Please fill all fields before exporting.');
                 return;
             }
 
@@ -732,234 +708,326 @@
             const voucherCount = endVoucher - startVoucher + 1;
 
             if (voucherCount <= 0) {
-                console.log('Invalid voucher range');
-                alert('Invalid voucher range.');
+                showErrorToast('Invalid voucher range.');
                 return;
             }
 
-            // Dates list
+            const maxBill = payload.maxBillAmount;
+
+            // Generate dates list
             const dateList = generateDateRange(payload.startDate, payload.endDate);
             if (dateList.length === 0) {
-                console.log('No dates in the given range');
-                alert('No dates in the given range.');
+                showErrorToast('Invalid date range.');
                 return;
             }
 
+            // CSV header
             const headers = [
-                'Date',
-                'Particulars',
-                'Voucher Type',
-                'Voucher No.',
-                'Quantity',
-                'NET PRICE',      // excl GST
-                'NET AMT',        // excl GST
-                'Cgst',
-                'Sgst',
-                'FINAL INVOICE',  // incl GST
-                'item name',
-                'ledger',
-                'Registration Type'
+                'Date', 'Particulars', 'Voucher Type', 'Voucher No.', 'Quantity',
+                'NET PRICE', 'NET AMT', 'Cgst', 'Sgst', 'FINAL INVOICE',
+                'item name', 'ledger', 'Registration Type'
             ];
 
-            const rows = [];
+            // Per-item state
+            const itemsState = payload.items.map(i => ({
+                ...i,
+                quantity: i.quantity || 0,
+                remainingQty: i.quantity || 0
+            }));
 
-            // 1) Distribute each item's quantity exactly over vouchers
-            const itemDistributions = payload.items.map(item => {
-                const totalQty = item.quantity ? Number(item.quantity) : 0;
-                const qtyPerVoucher = distributeQuantitiesOverVouchers(
-                    totalQty,
-                    voucherCount
+            // Check: any highest price > max bill? Then one unit can't fit.
+            const tooBig = itemsState.find(i => (i.higestunitPrice || 0) > maxBill);
+            if (tooBig) {
+                showErrorToast(
+                    `Max Bill Amount is less than highest unit price for item "${tooBig.itemName}". ` +
+                    'Increase Max Bill Amount.'
                 );
-                return {
-                    ...item,
-                    qtyPerVoucher
-                };
-            });
+                return;
+            }
 
-            // 2) For each voucher, create rows
+            // Total quantity
+            const totalQtyAllItems = itemsState.reduce((s, i) => s + i.quantity, 0);
+            if (totalQtyAllItems <= 0) {
+                showErrorToast('Total quantity for all items must be greater than 0.');
+                return;
+            }
+
+            // Must have at least 1 quantity per voucher (to give each voucher some item)
+            if (totalQtyAllItems < voucherCount) {
+                showErrorToast(
+                    'Total quantity of all items is less than the number of vouchers. ' +
+                    'Cannot put items on every voucher with current inputs.'
+                );
+                return;
+            }
+
+            // ----------------- Create voucher containers -----------------
+            const vouchers = [];
             for (let vIndex = 0; vIndex < voucherCount; vIndex++) {
-                const voucherNo = startVoucher + vIndex;
-                // round-robin assignment of vouchers to dates
-                const date = dateList[vIndex % dateList.length];
+                vouchers.push({
+                    voucherNo: startVoucher + vIndex,
+                    date: dateList[vIndex % dateList.length], // round-robin dates
+                    totalGross: 0,       // sum of gross (incl GST)
+                    items: {}            // itemIndex -> { qty, grossUnitPriceIncl, gstRate }
+                });
+            }
 
-                // randomize item order for this voucher
-                const itemIndices = Array.from(
-                    { length: itemDistributions.length },
-                    (_, i) => i
-                ).sort(() => Math.random() - 0.5);
+            // ----------------- STEP 1: SEED EACH VOUCHER WITH 1 UNIT -----------------
+            for (let vIndex = 0; vIndex < voucherCount; vIndex++) {
+                const voucher = vouchers[vIndex];
 
-                for (let idx of itemIndices) {
-                    const item = itemDistributions[idx];
-                    const qty = item.qtyPerVoucher[vIndex];
-
-                    if (!qty || qty <= 0) {
-                        continue;
-                    }
-
-                    const lowest = item.lowestunitPrice || 0;  // INCL GST
-                    const highest = item.higestunitPrice || 0; // INCL GST
-                    if (lowest <= 0 || highest <= 0 || highest < lowest) {
-                        continue;
-                    }
-
-                    const grossUnitPriceIncl = getRandomPrice(
-                        lowest,
-                        highest,
-                        item.variance
+                // pick a random item that still has qty left
+                const availableItems = itemsState.filter(i => i.remainingQty > 0);
+                if (availableItems.length === 0) {
+                    showErrorToast(
+                        'Ran out of quantity while seeding vouchers. Adjust quantities or reduce vouchers.'
                     );
-                    if (!grossUnitPriceIncl) {
-                        continue;
-                    }
+                    return;
+                }
 
-                    const gstRate = item.gstRate || 0;
+                const randItemIndex = getRandomInt(0, availableItems.length - 1);
+                const item = availableItems[randItemIndex];
+                const itemIndex = itemsState.indexOf(item);
 
-                    let netUnitPriceExcl;
-                    if (gstRate > 0) {
-                        netUnitPriceExcl = roundTo2(
-                            grossUnitPriceIncl / (1 + gstRate / 100)
+                // random gross price (incl GST)
+                const grossPerUnit = getRandomPrice(
+                    item.lowestunitPrice,
+                    item.higestunitPrice,
+                    item.variance
+                );
+
+                if (!grossPerUnit) {
+                    showErrorToast('Unable to generate unit price from given range/variance.');
+                    return;
+                }
+
+                if (grossPerUnit > maxBill) {
+                    showErrorToast(
+                        'A single unit price exceeds Max Bill Amount. Increase Max Bill Amount.'
+                    );
+                    return;
+                }
+
+                voucher.totalGross = roundTo2(voucher.totalGross + grossPerUnit);
+
+                let row = voucher.items[itemIndex];
+                if (!row) {
+                    row = {
+                        qty: 1,
+                        grossUnitPriceIncl: grossPerUnit,
+                        gstRate: item.gstRate || 0
+                    };
+                } else {
+                    row.qty += 1;
+                }
+                voucher.items[itemIndex] = row;
+
+                item.remainingQty -= 1;
+            }
+
+            // ----------------- STEP 2: DISTRIBUTE REMAINING QTY RANDOMLY -----------------
+            for (let itemIndex = 0; itemIndex < itemsState.length; itemIndex++) {
+                const item = itemsState[itemIndex];
+
+                while (item.remainingQty > 0) {
+                    let placed = false;
+                    const maxAttempts = voucherCount * 2;
+
+                    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                        const vIdx = getRandomInt(0, voucherCount - 1);
+                        const voucher = vouchers[vIdx];
+
+                        const remainingCap = maxBill - voucher.totalGross;
+                        if (remainingCap <= 0) {
+                            continue;
+                        }
+
+                        let row = voucher.items[itemIndex];
+
+                        let grossPerUnit;
+                        if (row && row.grossUnitPriceIncl) {
+                            grossPerUnit = row.grossUnitPriceIncl;
+                        } else {
+                            grossPerUnit = getRandomPrice(
+                                item.lowestunitPrice,
+                                item.higestunitPrice,
+                                item.variance
+                            );
+                            if (!grossPerUnit) {
+                                continue;
+                            }
+                        }
+
+                        if (grossPerUnit > remainingCap) {
+                            continue;
+                        }
+
+                        const maxByCap = Math.floor(remainingCap / grossPerUnit);
+                        const maxByQty = item.remainingQty;
+                        const maxQtyHere = Math.min(maxByCap, maxByQty);
+
+                        if (maxQtyHere <= 0) {
+                            continue;
+                        }
+
+                        const qtyToAdd = getRandomInt(1, maxQtyHere);
+
+                        voucher.totalGross = roundTo2(
+                            voucher.totalGross + grossPerUnit * qtyToAdd
                         );
-                    } else {
-                        netUnitPriceExcl = roundTo2(grossUnitPriceIncl);
+
+                        if (!row) {
+                            row = {
+                                qty: qtyToAdd,
+                                grossUnitPriceIncl: grossPerUnit,
+                                gstRate: item.gstRate || 0
+                            };
+                        } else {
+                            row.qty += qtyToAdd;
+                        }
+                        voucher.items[itemIndex] = row;
+
+                        item.remainingQty -= qtyToAdd;
+                        placed = true;
+                        break;
                     }
 
-                    const netAmt = roundTo2(netUnitPriceExcl * qty);
-
-                    let cgst = 0;
-                    let sgst = 0;
-                    let finalInvoice = netAmt;
-
-                    if (gstRate > 0) {
-                        const totalGst = roundTo2((netAmt * gstRate) / 100);
-                        const halfGst = roundTo2(totalGst / 2);
-                        cgst = halfGst;
-                        sgst = roundTo2(totalGst - halfGst);
-                        finalInvoice = roundTo2(netAmt + cgst + sgst);
+                    if (!placed) {
+                        showErrorToast(
+                            'Cannot allocate all item quantities without exceeding Max Bill Amount. ' +
+                            'Try reducing number of vouchers or increasing Max Bill Amount.'
+                        );
+                        return;
                     }
-
-                    rows.push([
-                        date,
-                        'Cash',                         // Particulars
-                        'C SALE',                       // Voucher Type
-                        voucherNo,
-                        qty,
-                        netUnitPriceExcl.toFixed(2),    // NET PRICE (excl GST)
-                        netAmt.toFixed(2),              // NET AMT (excl GST)
-                        cgst.toFixed(2),                // Cgst
-                        sgst.toFixed(2),                // Sgst
-                        finalInvoice.toFixed(2),        // FINAL INVOICE (incl GST)
-                        item.itemName,
-                        'SALE GST',                     // ledger
-                        'Unregistered/Consumer'         // Registration Type
-                    ]);
                 }
             }
 
+            // ----------------- BUILD CSV ROWS -----------------
+            const rows = [];
+
+            for (const v of vouchers) {
+                const itemIndexes = Object.keys(v.items);
+                if (itemIndexes.length === 0) {
+                    showErrorToast(
+                        'A voucher ended up with no items. Please adjust inputs.'
+                    );
+                    return;
+                }
+
+                itemIndexes.forEach(idxStr => {
+                    const idx = Number(idxStr);
+                    const row = v.items[idx];
+                    const qty = row.qty;
+                    const grossPerUnit = row.grossUnitPriceIncl;
+                    const gstRate = row.gstRate || 0;
+
+                    const grossTotal = roundTo2(grossPerUnit * qty); // FINAL INVOICE total
+
+                    let netAmt, netUnitPriceExcl, cgst, sgst, finalInvoice;
+                    if (gstRate > 0) {
+                        netAmt = roundTo2(grossTotal / (1 + gstRate / 100));
+                        const totalGst = roundTo2(grossTotal - netAmt);
+                        cgst = roundTo2(totalGst / 2);
+                        sgst = roundTo2(totalGst - cgst);
+                        finalInvoice = grossTotal;
+                        netUnitPriceExcl = roundTo2(netAmt / qty);
+                    } else {
+                        netAmt = grossTotal;
+                        cgst = 0;
+                        sgst = 0;
+                        finalInvoice = grossTotal;
+                        netUnitPriceExcl = roundTo2(grossPerUnit);
+                    }
+
+                    rows.push([
+                        v.date,
+                        'Cash',
+                        'C SALE',
+                        v.voucherNo,
+                        qty,
+                        netUnitPriceExcl.toFixed(2),
+                        netAmt.toFixed(2),
+                        cgst.toFixed(2),
+                        sgst.toFixed(2),
+                        finalInvoice.toFixed(2),
+                        itemsState[idx].itemName,
+                        'SALE GST',
+                        'Unregistered/Consumer'
+                    ]);
+                });
+            }
+
             if (rows.length === 0) {
-                console.log('No rows generated with the given constraints');
-                alert('No rows generated with the given constraints.');
+                showErrorToast('No rows could be generated with current settings.');
                 return;
             }
 
-            let csvContent = '';
-            csvContent += headers.join(',') + '\n';
+            // ----------------- Build CSV & Download -----------------
+            let csvContent = headers.join(',') + '\n';
 
-            rows.forEach(row => {
-                const escapedRow = row.map(value => {
-                    const val =
-                        value !== null && value !== undefined
-                            ? value.toString()
-                            : '';
-                    if (
-                        val.includes(',') ||
-                        val.includes('"') ||
-                        val.includes('\n')
-                    ) {
-                        return `"${val.replace(/"/g, '""')}"`;
-                    }
-                    return val;
+            rows.forEach(r => {
+                const escaped = r.map(v => {
+                    const s = v != null ? v.toString() : '';
+                    return s.includes(',') ? `"${s}"` : s;
                 });
-                csvContent += escapedRow.join(',') + '\n';
+                csvContent += escaped.join(',') + '\n';
             });
 
-            const blob = new Blob([csvContent], {
-                type: 'application/octet-stream'
-            });
+            const blob = new Blob([csvContent], { type: 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
 
-            const downloadElement = document.createElement('a');
-            downloadElement.href = url;
+            const startStr = payload.startDate.replace(/-/g, '');
+            const endStr = payload.endDate.replace(/-/g, '');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `BillsExport_${startStr}_to_${endStr}.csv`;
 
-            const start = payload.startDate
-                ? payload.startDate.replace(/-/g, '')
-                : 'NA';
-            const end = payload.endDate
-                ? payload.endDate.replace(/-/g, '')
-                : 'NA';
-
-            downloadElement.download = `BillsExport_${start}_to_${end}.csv`;
-
-            document.body.appendChild(downloadElement);
-            downloadElement.click();
-            document.body.removeChild(downloadElement);
-
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Error while generating Excel/CSV: ', error);
-            alert('Error while generating CSV. Check console.');
+
+        } catch (e) {
+            console.error(e);
+            showErrorToast('Unexpected error while generating export.');
         }
     }
 
     downloadExcelBtn.addEventListener('click', handleDownloadExcel);
 
-    // ------------------ Helpers (same as in LWC) ------------------
+    // ---------------- HELPERS (browser version of LWC methods) ----------------
     function getRandomInt(min, max) {
-        const minInt = Math.ceil(min);
-        const maxInt = Math.floor(max);
-        return Math.floor(Math.random() * (maxInt - minInt + 1)) + minInt;
+        const mi = Math.ceil(min);
+        const ma = Math.floor(max);
+        return Math.floor(Math.random() * (ma - mi + 1)) + mi;
     }
 
-    // Price INCLUDING GST, always within [lowest, highest]
+    // Random price between lowest & highest using variance step (incl GST)
     function getRandomPrice(lowest, highest, variance) {
-        const step = variance && variance > 0 ? variance : 5;
+        const step = variance > 0 ? variance : 5;
         const minMult = Math.ceil(lowest / step);
         const maxMult = Math.floor(highest / step);
-        if (maxMult < minMult) {
-            return null;
-        }
+        if (maxMult < minMult) return null;
         const multiplier = getRandomInt(minMult, maxMult);
-        return multiplier * step;
+        return step * multiplier;
     }
 
-    function generateDateRange(startDateStr, endDateStr) {
-        const dates = [];
-        const start = new Date(startDateStr);
-        const end = new Date(endDateStr);
+    function generateDateRange(start, end) {
+        const result = [];
+        const d1 = new Date(start);
+        const d2 = new Date(end);
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            return dates;
+        if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return result;
+
+        for (let d = new Date(d1); d <= d2; d.setDate(d.getDate() + 1)) {
+            result.push(d.toISOString().slice(0, 10));
         }
-
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            dates.push(d.toISOString().slice(0, 10));
-        }
-
-        return dates;
+        return result;
     }
 
-    function distributeQuantitiesOverVouchers(totalQty, voucherCount) {
-        const arr = new Array(voucherCount).fill(0);
-        for (let i = 0; i < totalQty; i++) {
-            const idx = getRandomInt(0, voucherCount - 1);
-            arr[idx]++;
-        }
-        return arr;
-    }
-
-    function roundTo2(value) {
-        if (value === null || value === undefined || isNaN(value)) {
-            return 0;
-        }
-        return Math.round(value * 100) / 100;
+    function roundTo2(v) {
+        if (v === null || v === undefined || isNaN(v)) return 0;
+        return Math.round(v * 100) / 100;
     }
 
     // Initial render
