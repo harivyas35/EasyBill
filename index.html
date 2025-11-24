@@ -928,7 +928,9 @@
                         netAmt = roundTo2(grossTotal / (1 + gstRate / 100));
                         const totalGst = roundTo2(grossTotal - netAmt);
                         cgst = roundTo2(totalGst / 2);
-                        sgst = roundTo2(totalGst - cgst);
+                        //sgst = roundTo2(totalGst - cgst);
+                        sgst = roundTo2(totalGst /2);
+
                         finalInvoice = grossTotal;
                         netUnitPriceExcl = roundTo2(netAmt / qty);
                     } else {
