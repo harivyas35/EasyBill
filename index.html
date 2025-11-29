@@ -325,11 +325,11 @@
     <header class="app-header">
         <div class="app-title">
             <span class="icon">🧮</span>
-            Easy Bill
-            <span class="badge">Local Preview</span>
+            NDS
+            <span class="badge"></span>
         </div>
         <p class="app-subtitle">
-            Configure items, bill range & GST, then generate voucher-wise CSV ready for Excel.
+            
         </p>
     </header>
 
@@ -414,7 +414,7 @@
                     Item List
                 </div>
                 <div class="card-subtitle">
-                    Enter manually or upload from Excel / CSV. Prices are inclusive of GST.
+                    Enter item quantity and price range (inclusive of GST).
                 </div>
             </div>
             <div class="items-header-right" id="itemsCountLabel">
@@ -609,7 +609,7 @@
             count === 1 ? '1 item configured' : `${count} items configured`;
     }
 
-    // ------------------ ITEM HANDLERS ------------------
+    // ------------------ ITEM HANDLERS (mirroring LWC) ------------------
     function handleAddItem() {
         items = [
             ...items,
@@ -758,22 +758,16 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // ---------- HEADER NORMALIZATION + MAP (MORE FORGIVING) ----------
-
-    // Make header detection very forgiving:
-    // - trim
-    // - lowercase
-    // - remove ALL non-alphanumeric characters
+    // ---------- HEADER NORMALIZATION + MAP (FORGIVING) ----------
     function normalizeHeader(h) {
         if (h === null || h === undefined) return '';
         return h
             .toString()
             .trim()
             .toLowerCase()
-            .replace(/[^a-z0-9]/g, ''); // removes spaces, underscores, punctuation, etc.
+            .replace(/[^a-z0-9]/g, ''); // remove spaces, underscores, punctuation, etc.
     }
 
-    // Map headers -> indices (Item Name, Quantity, Lowest Unit Price, Highest Unit Price, variance, GST Rate)
     function buildHeaderMap(headers) {
         const map = {};
         const normalized = headers.map(h => normalizeHeader(h));
@@ -869,7 +863,7 @@
         };
     }
 
-    // ------------------ SUBMIT (enable Download button) ------------------
+    // ------------------ SUBMIT (same logic + show download button) ------------------
     function handleSubmit() {
         const allInputs = document.querySelectorAll('input');
         let allValid = true;
@@ -906,6 +900,7 @@
         console.log('Submitted items => ', JSON.stringify(payload));
         alert('Configuration submitted. You can now Download Excel.');
 
+        // Only after successful submit
         downloadExcelBtn.classList.remove('hidden');
     }
 
@@ -930,7 +925,7 @@
                 billEndNumber: billEndNumber ? Number(billEndNumber) : null,
                 startDate: startDate || null,
                 endDate: endDate || null,
-                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null,
+                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST
                 items: itemsPayload
             };
 
@@ -1144,14 +1139,14 @@
                     const grossPerUnit = row.grossUnitPriceIncl;
                     const gstRate = row.gstRate || 0;
 
-                    const grossTotal = roundTo2(grossPerUnit * qty); // FINAL invoice total
+                    const grossTotal = roundTo2(grossPerUnit * qty); // FINAL INVOICE total
 
                     let netAmt, netUnitPriceExcl, cgst, sgst, finalInvoice;
                     if (gstRate > 0) {
                         netAmt = roundTo2(grossTotal / (1 + gstRate / 100));
                         const totalGst = roundTo2(grossTotal - netAmt);
                         cgst = roundTo2(totalGst / 2);
-                        sgst = roundTo2(totalGst - cgst);
+                        sgst = roundTo2(totalGst / 2);   // your updated logic
                         finalInvoice = grossTotal;
                         netUnitPriceExcl = roundTo2(netAmt / qty);
                     } else {
@@ -1186,6 +1181,7 @@
             }
 
             let csvContent = headers.join(',') + '\n';
+
             rows.forEach(r => {
                 const escaped = r.map(v => {
                     const s = v != null ? v.toString() : '';
@@ -1223,11 +1219,27 @@
         return Math.floor(Math.random() * (ma - mi + 1)) + mi;
     }
 
+    // Random price between lowest & highest using variance step (values are INCL GST)
     function getRandomPrice(lowest, highest, variance) {
-        const step = variance > 0 ? variance : 5;
-        const minMult = Math.ceil(lowest / step);
-        const maxMult = Math.floor(highest / step);
-        if (maxMult < minMult) return null;
+        const lo = Number(lowest);
+        const hi = Number(highest);
+
+        if (isNaN(lo) || isNaN(hi) || lo <= 0 || hi <= 0 || hi < lo) {
+            return null;
+        }
+
+        if (lo === hi) {
+            return lo;
+        }
+
+        const step = variance && variance > 0 ? Number(variance) : 5;
+        const minMult = Math.ceil(lo / step);
+        const maxMult = Math.floor(hi / step);
+
+        if (maxMult < minMult) {
+            return null;
+        }
+
         const multiplier = getRandomInt(minMult, maxMult);
         return step * multiplier;
     }
