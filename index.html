@@ -243,6 +243,12 @@
             box-shadow: 0 10px 20px rgba(34, 197, 94, 0.4);
         }
 
+        .btn-upload {
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            color: #e0f2fe;
+            box-shadow: 0 10px 20px rgba(14, 165, 233, 0.45);
+        }
+
         .btn-download {
             background: linear-gradient(135deg, #f97316, #eab308);
             color: #1f2937;
@@ -320,7 +326,7 @@
         <div class="app-title">
             <span class="icon">🧮</span>
             Easy Bill
-            <span class="badge">EasyBill Tool</span>
+            <span class="badge">Local Preview</span>
         </div>
         <p class="app-subtitle">
             Configure items, bill range & GST, then generate voucher-wise CSV ready for Excel.
@@ -408,7 +414,7 @@
                     Item List
                 </div>
                 <div class="card-subtitle">
-                    Enter item quantity and price range (inclusive of GST).
+                    Enter manually or upload from Excel / CSV. Prices are inclusive of GST.
                 </div>
             </div>
             <div class="items-header-right" id="itemsCountLabel">
@@ -420,6 +426,7 @@
 
         <div class="button-row">
             <div class="button-group">
+                <button id="uploadItemsBtn" class="btn btn-upload">📤 Upload Items</button>
                 <button id="addItemBtn" class="btn btn-secondary">＋ Add Item</button>
             </div>
             <div class="button-group">
@@ -435,6 +442,17 @@
         </div>
     </div>
 </div>
+
+<!-- Hidden file input for upload -->
+<input
+    type="file"
+    id="fileInput"
+    class="hidden"
+    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+/>
+
+<!-- SheetJS for Excel parsing -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script>
     // ------------------ STATE (mirrors LWC fields) ------------------
@@ -468,8 +486,10 @@
     const itemsContainer = document.getElementById('itemsContainer');
     const itemsCountLabel = document.getElementById('itemsCountLabel');
     const addItemBtn = document.getElementById('addItemBtn');
+    const uploadItemsBtn = document.getElementById('uploadItemsBtn');
     const submitBtn = document.getElementById('submitBtn');
     const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+    const fileInput = document.getElementById('fileInput');
 
     // ------------------ TOAST (browser version of ShowToastEvent) ------------------
     function showErrorToast(message) {
@@ -589,7 +609,7 @@
             count === 1 ? '1 item configured' : `${count} items configured`;
     }
 
-    // ------------------ ITEM HANDLERS (mirroring LWC) ------------------
+    // ------------------ ITEM HANDLERS ------------------
     function handleAddItem() {
         items = [
             ...items,
@@ -624,7 +644,232 @@
 
     addItemBtn.addEventListener('click', handleAddItem);
 
-    // ------------------ SUBMIT (same logic + show download button) ------------------
+    // ------------------ UPLOAD ITEMS (Excel / CSV) ------------------
+    uploadItemsBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', handleFileSelected);
+
+    function handleFileSelected(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const name = file.name.toLowerCase();
+
+        if (name.endsWith('.csv')) {
+            parseCsvFile(file);
+        } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+            parseExcelFile(file);
+        } else {
+            showErrorToast('Unsupported file type. Please upload CSV or Excel.');
+        }
+    }
+
+    function parseCsvFile(file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const text = evt.target.result;
+            parseItemsFromCsvText(text);
+        };
+        reader.readAsText(file);
+    }
+
+    function parseItemsFromCsvText(text) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+        if (lines.length < 2) {
+            showErrorToast('CSV must have a header row and at least one data row.');
+            return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim());
+        const headerMap = buildHeaderMap(headers);
+        if (headerMap.itemName === undefined) {
+            showErrorToast('CSV must contain an "Item Name" column.');
+            return;
+        }
+
+        const newItems = [];
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(',');
+            if (row.every(c => c.trim() === '')) continue;
+
+            const item = buildItemFromRow(headerMap, row);
+            if (item) newItems.push(item);
+        }
+
+        if (newItems.length === 0) {
+            showErrorToast('No valid item rows found in CSV.');
+            return;
+        }
+
+        newItems.forEach(it => {
+            it.id = nextId++;
+            items.push(it);
+        });
+        renderItems();
+        alert(`${newItems.length} items added from CSV.`);
+    }
+
+    function parseExcelFile(file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            if (!rows || rows.length < 2) {
+                showErrorToast('Excel must have a header row and at least one data row.');
+                return;
+            }
+
+            const headers = rows[0].map(cell => (cell || '').toString());
+            const headerMap = buildHeaderMap(headers);
+            if (headerMap.itemName === undefined) {
+                showErrorToast('Excel must contain an "Item Name" column.');
+                return;
+            }
+
+            const newItems = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.every(c => (c === null || c === undefined || c.toString().trim() === ''))) {
+                    continue;
+                }
+                const item = buildItemFromRow(headerMap, row);
+                if (item) newItems.push(item);
+            }
+
+            if (newItems.length === 0) {
+                showErrorToast('No valid item rows found in Excel.');
+                return;
+            }
+
+            newItems.forEach(it => {
+                it.id = nextId++;
+                items.push(it);
+            });
+            renderItems();
+            alert(`${newItems.length} items added from Excel.`);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ---------- HEADER NORMALIZATION + MAP (MORE FORGIVING) ----------
+
+    // Make header detection very forgiving:
+    // - trim
+    // - lowercase
+    // - remove ALL non-alphanumeric characters
+    function normalizeHeader(h) {
+        if (h === null || h === undefined) return '';
+        return h
+            .toString()
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, ''); // removes spaces, underscores, punctuation, etc.
+    }
+
+    // Map headers -> indices (Item Name, Quantity, Lowest Unit Price, Highest Unit Price, variance, GST Rate)
+    function buildHeaderMap(headers) {
+        const map = {};
+        const normalized = headers.map(h => normalizeHeader(h));
+
+        console.log('Raw headers:', headers);
+        console.log('Normalized headers:', normalized);
+
+        normalized.forEach((key, i) => {
+            // ITEM NAME
+            if (
+                map.itemName === undefined &&
+                (key === 'itemname' ||
+                 key === 'item' ||
+                 (key.includes('item') && key.includes('name')))
+            ) {
+                map.itemName = i;
+            }
+            // QUANTITY
+            else if (
+                map.quantity === undefined &&
+                (key === 'quantity' || key === 'qty' || key === 'quantitypcs')
+            ) {
+                map.quantity = i;
+            }
+            // LOWEST UNIT PRICE
+            else if (
+                map.lowestunitPrice === undefined &&
+                (key === 'lowestunitprice' ||
+                 key === 'lowunitprice' ||
+                 key === 'lowprice')
+            ) {
+                map.lowestunitPrice = i;
+            }
+            // HIGHEST UNIT PRICE (also tolerate "higestunitprice")
+            else if (
+                map.higestunitPrice === undefined &&
+                (key === 'highestunitprice' ||
+                 key === 'higestunitprice' ||
+                 key === 'highunitprice' ||
+                 key === 'highprice')
+            ) {
+                map.higestunitPrice = i;
+            }
+            // VARIANCE
+            else if (map.variance === undefined && key === 'variance') {
+                map.variance = i;
+            }
+            // GST RATE
+            else if (
+                map.gstRate === undefined &&
+                (key === 'gstrate' || key === 'gst' || key === 'taxrate')
+            ) {
+                map.gstRate = i;
+            }
+        });
+
+        // Fallback: if still no itemName but first header looks non-empty, assume first column
+        if (map.itemName === undefined && headers.length > 0) {
+            const firstNorm = normalizeHeader(headers[0]);
+            if (firstNorm) {
+                map.itemName = 0;
+            }
+        }
+
+        return map;
+    }
+
+    function toNumberOrNull(v) {
+        if (v === null || v === undefined) return null;
+        const num = Number(v);
+        return isNaN(num) ? null : num;
+    }
+
+    function buildItemFromRow(headerMap, row) {
+        const nameIdx = headerMap.itemName;
+        const name = row[nameIdx] != null ? row[nameIdx].toString().trim() : '';
+        if (!name) return null;
+
+        const quantity = headerMap.quantity !== undefined ? toNumberOrNull(row[headerMap.quantity]) : null;
+        const lowest = headerMap.lowestunitPrice !== undefined ? toNumberOrNull(row[headerMap.lowestunitPrice]) : null;
+        const highest = headerMap.higestunitPrice !== undefined ? toNumberOrNull(row[headerMap.higestunitPrice]) : null;
+        const variance = headerMap.variance !== undefined ? toNumberOrNull(row[headerMap.variance]) : null;
+        const gstRate = headerMap.gstRate !== undefined ? toNumberOrNull(row[headerMap.gstRate]) : null;
+
+        return {
+            id: null,
+            name,
+            quantity,
+            lowestunitPrice: lowest,
+            higestunitPrice: highest,
+            variance,
+            gstRate
+        };
+    }
+
+    // ------------------ SUBMIT (enable Download button) ------------------
     function handleSubmit() {
         const allInputs = document.querySelectorAll('input');
         let allValid = true;
@@ -661,7 +906,6 @@
         console.log('Submitted items => ', JSON.stringify(payload));
         alert('Configuration submitted. You can now Download Excel.');
 
-        // Only after successful submit
         downloadExcelBtn.classList.remove('hidden');
     }
 
@@ -672,7 +916,6 @@
     // ===========================================================
     function handleDownloadExcel() {
         try {
-            // Build clean payload from current UI
             const itemsPayload = items.map(item => ({
                 itemName: item.name,
                 quantity: item.quantity ? Number(item.quantity) : 0,
@@ -687,11 +930,10 @@
                 billEndNumber: billEndNumber ? Number(billEndNumber) : null,
                 startDate: startDate || null,
                 endDate: endDate || null,
-                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null, // INCL GST
+                maxBillAmount: maxBillAmount ? Number(maxBillAmount) : null,
                 items: itemsPayload
             };
 
-            // Basic validation
             if (!payload.billStartNumber ||
                 !payload.billEndNumber ||
                 !payload.startDate ||
@@ -713,29 +955,24 @@
             }
 
             const maxBill = payload.maxBillAmount;
-
-            // Generate dates list
             const dateList = generateDateRange(payload.startDate, payload.endDate);
             if (dateList.length === 0) {
                 showErrorToast('Invalid date range.');
                 return;
             }
 
-            // CSV header
             const headers = [
                 'Date', 'Particulars', 'Voucher Type', 'Voucher No.', 'Quantity',
                 'NET PRICE', 'NET AMT', 'Cgst', 'Sgst', 'FINAL INVOICE',
                 'item name', 'ledger', 'Registration Type'
             ];
 
-            // Per-item state
             const itemsState = payload.items.map(i => ({
                 ...i,
                 quantity: i.quantity || 0,
                 remainingQty: i.quantity || 0
             }));
 
-            // Check: any highest price > max bill? Then one unit can't fit.
             const tooBig = itemsState.find(i => (i.higestunitPrice || 0) > maxBill);
             if (tooBig) {
                 showErrorToast(
@@ -745,14 +982,12 @@
                 return;
             }
 
-            // Total quantity
             const totalQtyAllItems = itemsState.reduce((s, i) => s + i.quantity, 0);
             if (totalQtyAllItems <= 0) {
                 showErrorToast('Total quantity for all items must be greater than 0.');
                 return;
             }
 
-            // Must have at least 1 quantity per voucher (to give each voucher some item)
             if (totalQtyAllItems < voucherCount) {
                 showErrorToast(
                     'Total quantity of all items is less than the number of vouchers. ' +
@@ -761,22 +996,20 @@
                 return;
             }
 
-            // ----------------- Create voucher containers -----------------
             const vouchers = [];
             for (let vIndex = 0; vIndex < voucherCount; vIndex++) {
                 vouchers.push({
                     voucherNo: startVoucher + vIndex,
-                    date: dateList[vIndex % dateList.length], // round-robin dates
-                    totalGross: 0,       // sum of gross (incl GST)
-                    items: {}            // itemIndex -> { qty, grossUnitPriceIncl, gstRate }
+                    date: dateList[vIndex % dateList.length],
+                    totalGross: 0,
+                    items: {}
                 });
             }
 
-            // ----------------- STEP 1: SEED EACH VOUCHER WITH 1 UNIT -----------------
+            // STEP 1: seed each voucher with 1 unit
             for (let vIndex = 0; vIndex < voucherCount; vIndex++) {
                 const voucher = vouchers[vIndex];
 
-                // pick a random item that still has qty left
                 const availableItems = itemsState.filter(i => i.remainingQty > 0);
                 if (availableItems.length === 0) {
                     showErrorToast(
@@ -789,7 +1022,6 @@
                 const item = availableItems[randItemIndex];
                 const itemIndex = itemsState.indexOf(item);
 
-                // random gross price (incl GST)
                 const grossPerUnit = getRandomPrice(
                     item.lowestunitPrice,
                     item.higestunitPrice,
@@ -825,7 +1057,7 @@
                 item.remainingQty -= 1;
             }
 
-            // ----------------- STEP 2: DISTRIBUTE REMAINING QTY RANDOMLY -----------------
+            // STEP 2: distribute remaining quantities
             for (let itemIndex = 0; itemIndex < itemsState.length; itemIndex++) {
                 const item = itemsState[itemIndex];
 
@@ -838,9 +1070,7 @@
                         const voucher = vouchers[vIdx];
 
                         const remainingCap = maxBill - voucher.totalGross;
-                        if (remainingCap <= 0) {
-                            continue;
-                        }
+                        if (remainingCap <= 0) continue;
 
                         let row = voucher.items[itemIndex];
 
@@ -853,22 +1083,15 @@
                                 item.higestunitPrice,
                                 item.variance
                             );
-                            if (!grossPerUnit) {
-                                continue;
-                            }
+                            if (!grossPerUnit) continue;
                         }
 
-                        if (grossPerUnit > remainingCap) {
-                            continue;
-                        }
+                        if (grossPerUnit > remainingCap) continue;
 
                         const maxByCap = Math.floor(remainingCap / grossPerUnit);
                         const maxByQty = item.remainingQty;
                         const maxQtyHere = Math.min(maxByCap, maxByQty);
-
-                        if (maxQtyHere <= 0) {
-                            continue;
-                        }
+                        if (maxQtyHere <= 0) continue;
 
                         const qtyToAdd = getRandomInt(1, maxQtyHere);
 
@@ -902,7 +1125,7 @@
                 }
             }
 
-            // ----------------- BUILD CSV ROWS -----------------
+            // BUILD CSV ROWS
             const rows = [];
 
             for (const v of vouchers) {
@@ -921,16 +1144,14 @@
                     const grossPerUnit = row.grossUnitPriceIncl;
                     const gstRate = row.gstRate || 0;
 
-                    const grossTotal = roundTo2(grossPerUnit * qty); // FINAL INVOICE total
+                    const grossTotal = roundTo2(grossPerUnit * qty); // FINAL invoice total
 
                     let netAmt, netUnitPriceExcl, cgst, sgst, finalInvoice;
                     if (gstRate > 0) {
                         netAmt = roundTo2(grossTotal / (1 + gstRate / 100));
                         const totalGst = roundTo2(grossTotal - netAmt);
                         cgst = roundTo2(totalGst / 2);
-                        //sgst = roundTo2(totalGst - cgst);
-                        sgst = roundTo2(totalGst /2);
-
+                        sgst = roundTo2(totalGst - cgst);
                         finalInvoice = grossTotal;
                         netUnitPriceExcl = roundTo2(netAmt / qty);
                     } else {
@@ -964,9 +1185,7 @@
                 return;
             }
 
-            // ----------------- Build CSV & Download -----------------
             let csvContent = headers.join(',') + '\n';
-
             rows.forEach(r => {
                 const escaped = r.map(v => {
                     const s = v != null ? v.toString() : '';
@@ -997,53 +1216,21 @@
 
     downloadExcelBtn.addEventListener('click', handleDownloadExcel);
 
-    // ---------------- HELPERS (browser version of LWC methods) ----------------
+    // ---------------- HELPERS ----------------
     function getRandomInt(min, max) {
         const mi = Math.ceil(min);
         const ma = Math.floor(max);
         return Math.floor(Math.random() * (ma - mi + 1)) + mi;
     }
 
-    // Random price between lowest & highest using variance step (incl GST)
-// Random price between lowest & highest using variance step (values are INCL GST)
-function getRandomPrice(lowest, highest, variance) {
-    const lo = Number(lowest);
-    const hi = Number(highest);
-
-    // Basic validation
-    if (isNaN(lo) || isNaN(hi) || lo <= 0 || hi <= 0 || hi < lo) {
-        return null;
-    }
-
-    // If both are the same, just return that exact value
-    if (lo === hi) {
-        return lo;
-    }
-
-    // Otherwise use step logic (variance or default 5)
-    const step = variance && variance > 0 ? Number(variance) : 5;
-
-    const minMult = Math.ceil(lo / step);
-    const maxMult = Math.floor(hi / step);
-
-    if (maxMult < minMult) {
-        // range too narrow for given step
-        return null;
-    }
-
-    const multiplier = this.getRandomInt(minMult, maxMult);
-    return step * multiplier;
-}
-
-
-    /*function getRandomPrice(lowest, highest, variance) {
+    function getRandomPrice(lowest, highest, variance) {
         const step = variance > 0 ? variance : 5;
         const minMult = Math.ceil(lowest / step);
         const maxMult = Math.floor(highest / step);
         if (maxMult < minMult) return null;
         const multiplier = getRandomInt(minMult, maxMult);
         return step * multiplier;
-    }*/
+    }
 
     function generateDateRange(start, end) {
         const result = [];
